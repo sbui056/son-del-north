@@ -169,6 +169,8 @@ function renderCard({ kind, note, compare }, dark) {
   if (kind === "edited" && compare?.original && compare?.shared) {
     const pair = el("div", "compare");
     pair.append(shot(compare.original, "Original"), shot(compare.shared, "Shared here"));
+    // Sites whose CSP blocks data: images still get the note and the "See the original" link.
+    pair.addEventListener("error", () => pair.remove(), true);
     card.append(pair);
   }
 
