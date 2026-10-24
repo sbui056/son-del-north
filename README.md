@@ -72,7 +72,7 @@ Then open `chrome://extensions`, turn on Developer mode, click **Load unpacked**
 
 Seed images aren't in the repo (they belong to their photographers and publishers). Each `seeds/<id>/meta.json` has the claim, the verdict and the fact-check link. Put the image next to it as `image.jpg`, and for edited photos the real one as `original.jpg`.
 
-**Demo feed:** `../.venv/bin/python make_demo.py`, then open `http://localhost:8000/demo/?demo`. It's a fake social feed with reposted fakes mixed in among normal photos. The counter in the corner shows how many images were checked and how many got a note (Option+Shift+F toggles it on other sites).
+**Demo feed and eval:** both use local test photos that aren't in the repo either: normal photos in `test/negatives/`, real reposts in `test/wild/<id>/`, and [COCO val2017](https://cocodataset.org/#download) in `test/coco/`. Run `../.venv/bin/python make_demo.py`, then open `http://localhost:8000/demo/?demo`. It's a fake social feed with reposted fakes mixed in among normal photos. The counter in the corner shows how many images were checked and how many got a note (Option+Shift+F toggles it on other sites).
 
 ## Layout
 
