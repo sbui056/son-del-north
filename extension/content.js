@@ -120,7 +120,7 @@ function anchorFor(img, post) {
 
 function renderCard({ kind, note, diff_png }, dark) {
   const host = document.createElement("div");
-  host.dataset.footnote = "";
+  host.dataset.sidenote = "";
   // Keep clicks on the card from opening the post underneath.
   host.addEventListener("click", (e) => e.stopPropagation());
   const root = host.attachShadow({ mode: "closed" });
