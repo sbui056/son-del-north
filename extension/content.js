@@ -132,7 +132,13 @@ function placeGeneric(img, card) {
   }
   card.style.maxWidth = `${Math.max(img.getBoundingClientRect().width, 260)}px`;
   const parent = getComputedStyle(node.parentElement).display;
-  if (!/flex|grid/.test(parent)) return node.after(card);
+  if (!/flex|grid/.test(parent)) {
+    node.after(card);
+    // Centered images: line the card up with the image, not the text column.
+    const offset = img.getBoundingClientRect().left - card.getBoundingClientRect().left;
+    if (offset > 1) card.style.marginLeft = `${offset}px`;
+    return;
+  }
   // Inside a grid or flex row, keep the card in the same cell instead of adding a new one.
   if (!/^(A|IMG|PICTURE)$/.test(node.tagName)) return node.append(card);
   if (parent.includes("flex")) return node.parentElement.after(card);
