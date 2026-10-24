@@ -14,6 +14,7 @@ from matcher import ROOT, Matcher
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 app.mount("/seeds", StaticFiles(directory=ROOT / "seeds"), name="seeds")
+app.mount("/demo", StaticFiles(directory=ROOT / "demo", html=True), name="demo")
 
 matcher = Matcher()
 cache: dict[str, dict] = {}

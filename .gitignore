@@ -28,3 +28,4 @@ test/negatives/
 .vscode/
 .idea/
 *.log
+demo/feed/
