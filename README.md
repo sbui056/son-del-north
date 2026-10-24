@@ -45,11 +45,11 @@ From `backend/eval.py`, 53 fact-checked images, everything on CPU:
 
 | | |
 |---|---|
-| Reposts caught (random crops, rotation, filters, captions, screenshots, heavy JPEG) | 154/159 |
-| Real reposts collected from the web | 22/26 |
+| Reposts caught (random crops, rotation, filters, captions, screenshots, heavy JPEG) | 152/159 |
+| Real reposts collected from the web | 21/26 |
 | Edited fakes caught / real originals wrongly flagged | 83/90 / 1/90 |
 | Normal photos wrongly flagged (236 lookalikes + 5,000 COCO) | 0/5,236 |
-| Time per image | ~65 ms median |
+| Time per image | ~60 ms median |
 | Cost | $0, runs locally |
 
 ## Run it

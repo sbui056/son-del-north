@@ -96,6 +96,7 @@ flowchart TD
 ```
 
 - **SSCD** (Meta's self-supervised copy detection model, ResNet-50, 512-d) is trained to match an image to edited copies of itself: crops, overlays, recompression, color shifts. That's the exact problem here. General-purpose embeddings like CLIP match on *topic*, so they'd flag every photo of a shark on a highway.
+- **Threshold 0.45.** The highest-scoring normal photo out of 5,236 is 0.31. The band between 0.40 and 0.45 holds other images from the same AI generation batch as a known fake (0.42 to 0.43 on the Midjourney pope set). They were never fact-checked, so they stay silent.
 - **Index-time augmentation**: every seed is stored as 8 variants (crops, half-size JPEG, caption bar, phone screenshot frame, mirror). Making the index robust costs nothing at query time.
 - **Exact search** with numpy over L2-normalized vectors. That's the same math as FAISS `IndexFlatIP` and it's fine at this scale. We dropped FAISS because faiss and torch each bundle libomp on macOS and crash together. Past ~100k images, we'd move to FAISS IVF-PQ in its own process.
 
@@ -134,12 +135,12 @@ flowchart LR
 | | |
 |---|---|
 | Seeds | 53 (9 edited pairs with the real original) |
-| Synthetic reposts caught | 154/159 (97%) |
-| Real reposts from the web caught | 22/26 |
+| Synthetic reposts caught | 152/159 (96%) |
+| Real reposts from the web caught | 21/26 |
 | Edited fakes caught / real originals flagged | 83/90 / 1/90 |
 | Normal photos flagged | 0/5,236 |
-| Highest normal-photo score | 0.31 vs threshold 0.40 |
-| Latency | ~65 ms median, ~115 ms p95, CPU only |
+| Highest normal-photo score | 0.31 vs threshold 0.45 |
+| Latency | ~60 ms median, ~100 ms p95, CPU only |
 | Cost | $0, everything runs locally |
 
 The real reposts it misses are collages where the fake is a small tile, and different images from the same AI series as a seed (they're separate images, so they *should* need their own entry).
