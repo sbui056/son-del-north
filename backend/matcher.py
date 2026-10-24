@@ -13,6 +13,7 @@ INDEX = ROOT / "index"
 SEEDS = ROOT / "seeds"
 
 PHASH_MAX = 8
+PAIR_MARGIN = 0.03  # unsure between a fake and its original -> stay silent
 EMBED_MIN = 0.45  # unrelated photos top out around 0.25 in eval.py
 
 
@@ -33,35 +34,53 @@ class Matcher:
         rows = json.loads((INDEX / "rows.json").read_text())
         self.row_entry = np.array([r["entry"] for r in rows])
         self.row_hash = [imagehash.hex_to_hash(r["phash"]) for r in rows]
+        self.ids = {e["id"]: i for i, e in enumerate(self.entries)}
+        self.known_edits = {
+            e["id"]: edit_diff.KnownEdit(Image.open(SEEDS / e["image"]), Image.open(SEEDS / e["id"] / "original.jpg"))
+            for e in self.entries if e.get("has_original")
+        }
 
     def match(self, img: Image.Image) -> dict:
         img = img.convert("RGB")
+        # Exact cosine search; vectors are L2-normalized. Swap for a FAISS index past ~100k rows.
+        sims = self.vectors @ embed(trim_borders(img))
         h = imagehash.phash(img)
         dists = [h - rh for rh in self.row_hash]
         best_row = int(np.argmin(dists))
         if dists[best_row] <= PHASH_MAX:
-            entry = self.entries[self.row_entry[best_row]]
-            return self._result(img, entry, 1 - dists[best_row] / 64, "phash")
+            return self._result(img, sims, self.row_entry[best_row], 1 - dists[best_row] / 64, "phash")
 
-        # Exact cosine search; vectors are L2-normalized. Swap for a FAISS index past ~100k rows.
-        sims = self.vectors @ embed(trim_borders(img))
         row = int(np.argmax(sims))
         score = float(sims[row])
         if score < EMBED_MIN:
             return {"match": False, "score": round(score, 3)}
-        return self._result(img, self.entries[self.row_entry[row]], score, "embedding")
+        return self._result(img, sims, self.row_entry[row], score, "embedding")
 
-    def _result(self, img, entry, score, method):
+    def _entry_sim(self, sims, i):
+        return float(sims[self.row_entry == i].max())
+
+    def _result(self, img, sims, i, score, method):
         score = round(float(score), 3)
-        diff = None
-        if entry["kind"] == "original":
-            # The real photo itself stays silent; a changed copy of it is a new edit.
-            diff = edit_diff.diff(img, Image.open(SEEDS / entry["image"]))
-            if not edit_diff.is_edited(diff):
-                return {"match": False, "score": score, "original_of": entry["parent"]}
-            entry = next(e for e in self.entries if e["id"] == entry["parent"])
-        elif entry.get("has_original"):
-            diff = edit_diff.diff(img, Image.open(SEEDS / entry["id"] / "original.jpg"))
+        entry = self.entries[i]
+        overlay = None
+        if entry["kind"] == "original" or entry.get("has_original"):
+            # Known edit with its real original indexed: work out which of the two the query copies.
+            fake_i = i if entry.get("has_original") else self.ids[entry["parent"]]
+            orig_i = self.ids[f"{self.entries[fake_i]['id']}/original"]
+            entry = self.entries[fake_i]
+            known = self.known_edits[entry["id"]]
+            verdict = known.verdict(img)
+            if verdict is None:
+                lead = self._entry_sim(sims, fake_i) - self._entry_sim(sims, orig_i)
+                verdict = "fake" if lead > PAIR_MARGIN else "original"
+            if verdict == "fake":
+                overlay = known.png if known.f is not None else None
+            else:
+                # The real photo stays silent unless a large part of it has clearly been changed.
+                diff = edit_diff.diff(img, Image.open(SEEDS / self.entries[orig_i]["image"]))
+                if diff is None or diff["changed"] < edit_diff.NEW_EDIT_MIN:
+                    return {"match": False, "score": score, "original_of": entry["id"]}
+                overlay = diff["png"]
         note = {
             "headline": entry["truth"],
             "context": f"Shared as: {entry['claim']}",
@@ -72,7 +91,7 @@ class Matcher:
             note["original_url"] = f"{self.base_url}/seeds/{entry['id']}/original.jpg"
         result = {"match": True, "kind": entry["kind"], "score": score, "method": method,
                   "id": entry["id"], "note": note}
-        if edit_diff.is_edited(diff):
+        if overlay:
             result["kind"] = "edited"
-            result["diff_png"] = diff["png"]
+            result["diff_png"] = overlay
         return result

@@ -73,6 +73,10 @@ def main():
     neg_top = sorted((r[1] for r in neg), reverse=True)[:5]
     print(f"current threshold {M.EMBED_MIN}: recall {tp}/{len(pos)}, false flags {fp}/{len(neg)}")
     print(f"highest negative scores: {neg_top}")
+    pairs = [e for e in seeds if e.get("has_original")]
+    fakes = [m.match(repost(Image.open(ROOT / "seeds" / e["image"])))["match"] for e in pairs for _ in range(10)]
+    reals = [m.match(repost(Image.open(ROOT / "seeds" / e["id"] / "original.jpg")))["match"] for e in pairs for _ in range(10)]
+    print(f"edited pairs: fake reposts flagged {sum(fakes)}/{len(fakes)}, real-photo reposts flagged {sum(reals)}/{len(reals)}")
     print(f"latency median {np.median(pos_ms + neg_ms):.0f} ms, p95 {np.percentile(pos_ms + neg_ms, 95):.0f} ms")
 
 
