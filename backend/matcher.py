@@ -3,7 +3,7 @@ from pathlib import Path
 
 import imagehash
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageChops
 
 import edit_diff
 from embed import embed
@@ -13,7 +13,16 @@ INDEX = ROOT / "index"
 SEEDS = ROOT / "seeds"
 
 PHASH_MAX = 8
-EMBED_MIN = 0.55  # placeholder until eval.py calibrates it
+EMBED_MIN = 0.45  # unrelated photos top out around 0.25 in eval.py
+
+
+def trim_borders(img: Image.Image) -> Image.Image:
+    """Strip solid-color frames (screenshots, letterboxing) around the photo."""
+    bg = Image.new("RGB", img.size, img.getpixel((0, 0)))
+    box = ImageChops.difference(img, bg).convert("L").point(lambda p: p > 24 and 255).getbbox()
+    if box and (box[2] - box[0]) * (box[3] - box[1]) > 0.3 * img.width * img.height:
+        return img.crop(box)
+    return img
 
 
 class Matcher:
@@ -35,7 +44,7 @@ class Matcher:
             return self._result(img, entry, 1 - dists[best_row] / 64, "phash")
 
         # Exact cosine search; vectors are L2-normalized. Swap for a FAISS index past ~100k rows.
-        sims = self.vectors @ embed(img)
+        sims = self.vectors @ embed(trim_borders(img))
         row = int(np.argmax(sims))
         score = float(sims[row])
         if score < EMBED_MIN:
