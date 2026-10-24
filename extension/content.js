@@ -2,10 +2,16 @@ const NAME = chrome.runtime.getManifest().name;
 const MIN_SIZE = 150;
 const LABELS = {
   debunked: "Fact-checked",
-  out_of_context: "Fact-checked",
+  out_of_context: "Out of context",
   ai_generated: "AI-generated",
-  edited: "Edited",
+  edited: "Edited photo",
 };
+const ICONS = {
+  debunked: "M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Zm3 4.6-3.6 4.2a.8.8 0 0 1-1.2 0L4.9 8.8a.8.8 0 1 1 1.2-1l.7.8 3-3.5a.8.8 0 0 1 1.2 1Z",
+  ai_generated: "M8 1c.4 2.9 1.7 4.6 5 5-3.3.4-4.6 2.1-5 5-.4-2.9-1.7-4.6-5-5 3.3-.4 4.6-2.1 5-5Zm4.5 8.5c.2 1.4.8 2 2 2.2-1.2.2-1.8.8-2 2.3-.2-1.5-.8-2.1-2-2.3 1.2-.2 1.8-.8 2-2.2Z",
+  edited: "M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 12.5v-9Zm1.5 0v6.2l2.4-2.4a.8.8 0 0 1 1.1 0l4.2 4.2h1.3v-8h-9Zm7 3.5a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6Z",
+};
+const BACKEND = "http://localhost:8000";
 const SKIP_SRC = /emoji|profile_images|avatar|styles\.redditmedia|\/styles\/|\.svg(\?|$)/i;
 
 const results = new Map(); // normalized src -> Promise<match or null>
@@ -56,7 +62,7 @@ async function inspect(img) {
 }
 
 function shouldSkip(img, src) {
-  if (!/^https?:/i.test(src) || SKIP_SRC.test(src)) return true;
+  if (!/^https?:/i.test(src) || SKIP_SRC.test(src) || src.startsWith(`${BACKEND}/seeds/`)) return true;
   const box = img.getBoundingClientRect();
   return (
     Math.min(box.width, box.height) < MIN_SIZE ||
@@ -90,9 +96,13 @@ function showCard(img, src, hit) {
   placed.set(post, done);
 
   const anchor = anchorFor(img, post);
-  const card = renderCard(hit, isDark(anchor));
-  if (anchor.slot) card.slot = anchor.slot; // stay in the same slot of Reddit's post element
-  anchor.after(card);
+  const card = renderCard(hit, isDark(anchor || img));
+  if (anchor) {
+    if (anchor.slot) card.slot = anchor.slot; // stay in the same slot of Reddit's post element
+    anchor.after(card);
+  } else {
+    placeGeneric(img, card);
+  }
   stats.flagged++;
   updatePill();
 }
@@ -111,14 +121,26 @@ function anchorFor(img, post) {
     }
     return node;
   }
-  return (
-    img.closest('[slot="post-media-container"]') ||
-    img.closest("shreddit-aspect-ratio, gallery-carousel") ||
-    img.parentElement
-  );
+  return img.closest('[slot="post-media-container"], shreddit-aspect-ratio, gallery-carousel');
 }
 
-function renderCard({ kind, note, diff_png }, dark) {
+// Any other site: right under the image or its figure/link/picture, kept to the image's width.
+function placeGeneric(img, card) {
+  let node = img.closest("figure") || img.closest("picture, a") || img;
+  while (node.parentElement !== document.body && /^inline/.test(getComputedStyle(node.parentElement).display)) {
+    node = node.parentElement;
+  }
+  card.style.maxWidth = `${Math.max(img.getBoundingClientRect().width, 260)}px`;
+  const parent = getComputedStyle(node.parentElement).display;
+  if (!/flex|grid/.test(parent)) return node.after(card);
+  // Inside a grid or flex row, keep the card in the same cell instead of adding a new one.
+  if (!/^(A|IMG|PICTURE)$/.test(node.tagName)) return node.append(card);
+  if (parent.includes("flex")) return node.parentElement.after(card);
+  card.style.gridColumn = "1 / -1";
+  node.after(card);
+}
+
+function renderCard({ kind, note, compare }, dark) {
   const host = document.createElement("div");
   host.dataset.sidenote = "";
   // Keep clicks on the card from opening the post underneath.
@@ -131,27 +153,46 @@ function renderCard({ kind, note, diff_png }, dark) {
   card.dataset.theme = dark ? "dark" : "light";
 
   const top = el("div", "top");
-  top.append(el("span", "label", LABELS[kind] || "Fact-checked"), el("span", "brand", NAME));
+  const label = el("span", "label");
+  label.append(icon(ICONS[kind] || ICONS.debunked), LABELS[kind] || "Fact-checked");
+  top.append(label, el("span", "brand", NAME));
   card.append(top);
   if (note.headline) card.append(el("p", "headline", note.headline));
   if (note.context) card.append(el("p", "context", note.context));
+
+  if (kind === "edited" && compare?.original && compare?.shared) {
+    const pair = el("div", "compare");
+    pair.append(shot(compare.original, "Original"), shot(compare.shared, "Shared here"));
+    card.append(pair);
+  }
 
   const links = el("div", "links");
   links.append(link(note.source_url, `Source: ${note.source_name || new URL(note.source_url).hostname}`));
   if (kind === "edited" && isWebUrl(note.original_url)) links.append(link(note.original_url, "See the original"));
   card.append(links);
 
-  if (kind === "edited" && diff_png) {
-    const details = el("details", "diff");
-    const img = el("img");
-    img.src = diff_png.startsWith("data:") ? diff_png : `data:image/png;base64,${diff_png}`;
-    img.alt = "Highlighted differences from the original";
-    details.append(el("summary", "", "What changed"), img);
-    card.append(details);
-  }
-
   root.append(card);
   return host;
+}
+
+function shot(src, caption) {
+  const figure = el("figure");
+  const img = el("img");
+  img.src = src;
+  img.alt = `${caption}, with the edited area outlined`;
+  figure.append(img, el("figcaption", "", caption));
+  return figure;
+}
+
+function icon(path) {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("aria-hidden", "true");
+  const shape = document.createElementNS(ns, "path");
+  shape.setAttribute("d", path);
+  svg.append(shape);
+  return svg;
 }
 
 function el(tag, className = "", text = "") {

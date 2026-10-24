@@ -4,13 +4,7 @@
   "version": "0.1.0",
   "description": "Puts a short note under images that are known fakes or edited versions of real photos.",
   "host_permissions": [
-    "https://x.com/*",
-    "https://twitter.com/*",
-    "https://www.reddit.com/*",
-    "https://*.reddit.com/*",
-    "https://pbs.twimg.com/*",
-    "https://*.redd.it/*",
-    "http://localhost:8000/*"
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js"
@@ -18,11 +12,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://x.com/*",
-        "https://twitter.com/*",
-        "https://www.reddit.com/*",
-        "https://*.reddit.com/*",
-        "http://localhost:8000/demo/*"
+        "<all_urls>"
       ],
       "js": [
         "content.js"
@@ -36,11 +26,7 @@
         "card.css"
       ],
       "matches": [
-        "https://x.com/*",
-        "https://twitter.com/*",
-        "https://www.reddit.com/*",
-        "https://*.reddit.com/*",
-        "http://localhost:8000/*"
+        "<all_urls>"
       ]
     }
   ]
