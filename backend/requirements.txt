@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+python-multipart
+httpx
+pillow
+imagehash
+numpy
+torch
+torchvision
+faiss-cpu
+opencv-python-headless
