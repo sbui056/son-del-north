@@ -22,6 +22,9 @@ seeds/**/*.png
 seeds/**/*.webp
 test/positives/
 test/negatives/
+test/wild/
+test/wild_originals/
+test/coco/
 
 # OS / editor
 .DS_Store
