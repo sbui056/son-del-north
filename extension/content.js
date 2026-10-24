@@ -96,7 +96,7 @@ function showCard(img, src, hit) {
   placed.set(post, done);
 
   const anchor = anchorFor(img, post);
-  const card = renderCard(hit, isDark(anchor || img));
+  const card = renderCard(hit, isDark(anchor || img), src);
   if (anchor) {
     if (anchor.slot) card.slot = anchor.slot; // stay in the same slot of Reddit's post element
     anchor.after(card);
@@ -146,7 +146,7 @@ function placeGeneric(img, card) {
   node.after(card);
 }
 
-function renderCard({ kind, note, compare }, dark) {
+function renderCard({ kind, note, compare, id }, dark, src) {
   const host = document.createElement("div");
   host.dataset.sidenote = "";
   // Keep clicks on the card from opening the post underneath.
@@ -177,6 +177,13 @@ function renderCard({ kind, note, compare }, dark) {
   const links = el("div", "links");
   links.append(link(note.source_url, `Source: ${note.source_name || new URL(note.source_url).hostname}`));
   if (kind === "edited" && isWebUrl(note.original_url)) links.append(link(note.original_url, "See the original"));
+  const report = el("button", "report", "Wrong match?");
+  report.type = "button";
+  report.addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "report", src, id });
+    host.remove();
+  });
+  links.append(report);
   card.append(links);
 
   root.append(card);

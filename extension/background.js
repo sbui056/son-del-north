@@ -1,4 +1,5 @@
 const API = "http://localhost:8000/match";
+const REPORT = "http://localhost:8000/report";
 const MAX_ACTIVE = 3;
 
 const cache = new Map(); // image url -> Promise<match or null>
@@ -7,6 +8,10 @@ let active = 0;
 let warned = false;
 
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+  if (msg?.type === "report") {
+    post(JSON.stringify({ url: msg.src, id: msg.id }), { "Content-Type": "application/json" }, REPORT).catch(() => {});
+    return;
+  }
   if (msg?.type !== "check") return;
   check(msg.src).then(reply);
   return true;
@@ -52,8 +57,8 @@ async function match(src) {
   }
 }
 
-async function post(body, headers = {}) {
-  const res = await fetch(API, { method: "POST", headers, body });
+async function post(body, headers = {}, url = API) {
+  const res = await fetch(url, { method: "POST", headers, body });
   return res.json();
 }
 

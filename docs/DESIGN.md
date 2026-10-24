@@ -42,6 +42,7 @@ flowchart LR
 | note card | Shadow DOM element inserted after the post's media block | The site's CSS can't break it and it can't break the site |
 | `/match` | Gets the image, caches by SHA-256 of the bytes, runs the matcher | The same viral image shows up under many URLs. The byte hash dedupes them |
 | `Matcher` | pHash first, then SSCD embedding search, then the edited-pair check | Cheap exact check first, then the robust one |
+| `/report` | "Wrong match?" on a card hides it and logs the image URL and seed id | Someone reviews every report. The matcher never learns from clicks, so nobody can game it into silencing a real fact-check |
 | `KnownEdit` | For an edited fake that has its real original: finds the region that was changed and judges which version a new copy came from | Without this, a copy of the real photo would get flagged as the fake |
 
 ## 2. Life of one image

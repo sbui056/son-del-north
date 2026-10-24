@@ -1,5 +1,6 @@
 import hashlib
 import io
+import json
 import time
 from collections import deque
 
@@ -57,6 +58,15 @@ async def match(request: Request):
     log.appendleft({"url": url, "match": result["match"], "id": result.get("id"),
                     "score": result["score"], "ms": ms})
     return result
+
+
+@app.post("/report")
+async def report(request: Request):
+    """A user said a note is wrong. Kept for a person to review; the matcher doesn't learn from it."""
+    data = await request.json()
+    with (ROOT / "index" / "reports.jsonl").open("a") as f:
+        f.write(json.dumps({"time": time.time(), "url": data.get("url"), "id": data.get("id")}) + "\n")
+    return {"ok": True}
 
 
 @app.get("/log")

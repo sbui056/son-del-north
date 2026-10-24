@@ -14,6 +14,7 @@ Sidenote makes the note travel with the image. It doesn't decide what's true. Pe
 
 - **Known fake:** a note under the image saying what it really is and where it came from, with the source.
 - **Edited real photo:** the same note, plus the real original next to the shared version with the edited area outlined.
+- **Wrong note?** Every card has a "Wrong match?" link. It hides the card and logs the report for a person to review.
 - **Everything else:** nothing. The real photo of the same event, the same person or the same flood stays silent.
 
 It works on any site: Reddit, X, news articles, blogs.
