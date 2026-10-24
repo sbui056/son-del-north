@@ -6,8 +6,9 @@ import numpy as np
 from PIL import Image
 
 WORK_WIDTH = 640
-NEW_EDIT_MIN = 0.10
-VERDICT_MARGIN = 3.0  # Lab units; closer calls fall back to embedding similarity  # stricter bar to flag a copy of a real photo as a new edit
+VERDICT_MARGIN = 3.0  # Lab units; closer calls fall back to embedding similarity
+CLOSE = 50  # Lab units; a pixel this close to one version counts as a vote for it
+KEEP_REGION = 0.2  # drop changed blobs smaller than this fraction of the biggest one
 
 
 def _cv(img: Image.Image) -> np.ndarray:
@@ -71,25 +72,28 @@ def _changes(warped, mask, o):
     return changed
 
 
-def _overlay(o, changed):
-    overlay = o.copy()
-    overlay[changed > 0] = (0.45 * overlay[changed > 0] + 0.55 * np.array([60, 60, 255])).astype(np.uint8)
+def _outline(img, changed):
+    out = img.copy()
     contours, _ = cv2.findContours(changed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    cv2.drawContours(overlay, contours, -1, (40, 40, 230), 2)
-    ok, png = cv2.imencode(".png", overlay)
-    return base64.b64encode(png.tobytes()).decode() if ok else None
+    cv2.drawContours(out, contours, -1, (255, 255, 255), 6)
+    cv2.drawContours(out, contours, -1, (40, 40, 230), 3)
+    ok, jpg = cv2.imencode(".jpg", out, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    return "data:image/jpeg;base64," + base64.b64encode(jpg.tobytes()).decode() if ok else None
 
 
-def diff(query: Image.Image, original: Image.Image) -> dict | None:
-    """{"changed": fraction, "png": base64 overlay on the original} or None if alignment fails."""
-    o = _cv(original)
-    aligned = _align(_cv(query), o)
-    if aligned is None:
-        return None
-    warped, mask = aligned
-    changed = _changes(warped, mask, o)
-    fraction = float((changed > 0).sum()) / max(1, int((mask > 0).sum()))
-    return {"changed": round(fraction, 4), "png": _overlay(o, changed)}
+def _compare(o, shared, changed):
+    """The original and the shared copy, both in the original's frame with the edit outlined."""
+    return {"original": _outline(o, changed), "shared": _outline(shared, changed)}
+
+
+def _main_regions(changed):
+    """Keep the edit itself, not the specks that JPEG noise and blending leave around it."""
+    n, labels, sizes, _ = cv2.connectedComponentsWithStats(changed)
+    if n <= 2:
+        return changed
+    areas = sizes[1:, cv2.CC_STAT_AREA]
+    keep = 1 + np.flatnonzero(areas >= KEEP_REGION * areas.max())
+    return np.where(np.isin(labels, keep), 255, 0).astype(np.uint8)
 
 
 class KnownEdit:
@@ -103,7 +107,7 @@ class KnownEdit:
         if aligned is not None:
             self.f, mask = aligned
             self.region = _changes(self.f, mask, self.o)
-            self.png = _overlay(self.o, self.region)
+            self.compare = _compare(self.o, self.f, _main_regions(self.region))
 
     def verdict(self, query: Image.Image) -> str | None:
         """"fake", "original", or None when it can't tell (alignment failed or edit cropped out)."""
@@ -118,8 +122,15 @@ class KnownEdit:
             return None
         o, f = _lab(self.o), _lab(self.f)
         q = _match_colors(_lab(warped), o, cv2.erode(mask, np.ones((15, 15), np.uint8)) > 0)
-        to_orig = np.abs(q - o).max(axis=2)[area].mean()
-        to_fake = np.abs(q - f).max(axis=2)[area].mean()
-        if abs(to_orig - to_fake) < VERDICT_MARGIN:
+        to_orig = np.abs(q - o).max(axis=2)[area]
+        to_fake = np.abs(q - f).max(axis=2)[area]
+        # Pixels that look like neither version (captions, stickers over the edit) don't get a vote.
+        decided = (np.minimum(to_orig, to_fake) < CLOSE) & (np.abs(to_orig - to_fake) > VERDICT_MARGIN)
+        if decided.sum() < max(200, 0.3 * area.sum()):
             return None
-        return "fake" if to_fake < to_orig else "original"
+        fake_share = (to_fake < to_orig)[decided].mean()
+        if fake_share > 0.7:
+            return "fake"
+        if fake_share < 0.3:
+            return "original"
+        return None

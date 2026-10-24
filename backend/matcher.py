@@ -73,14 +73,9 @@ class Matcher:
             if verdict is None:
                 lead = self._entry_sim(sims, fake_i) - self._entry_sim(sims, orig_i)
                 verdict = "fake" if lead > PAIR_MARGIN else "original"
-            if verdict == "fake":
-                overlay = known.png if known.f is not None else None
-            else:
-                # The real photo stays silent unless a large part of it has clearly been changed.
-                diff = edit_diff.diff(img, Image.open(SEEDS / self.entries[orig_i]["image"]))
-                if diff is None or diff["changed"] < edit_diff.NEW_EDIT_MIN:
-                    return {"match": False, "score": score, "original_of": entry["id"]}
-                overlay = diff["png"]
+            if verdict == "original":
+                return {"match": False, "score": score, "original_of": entry["id"]}
+            overlay = known.compare if known.f is not None else None
         note = {
             "headline": entry["truth"],
             "context": f"Shared as: {entry['claim']}",
@@ -93,5 +88,5 @@ class Matcher:
                   "id": entry["id"], "note": note}
         if overlay:
             result["kind"] = "edited"
-            result["diff_png"] = overlay
+            result["compare"] = overlay
         return result
