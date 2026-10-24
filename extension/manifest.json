@@ -17,15 +17,31 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://x.com/*", "https://twitter.com/*", "https://www.reddit.com/*", "https://*.reddit.com/*", "http://localhost:8000/demo/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*",
+        "https://www.reddit.com/*",
+        "https://*.reddit.com/*",
+        "http://localhost:8000/demo/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["card.css"],
-      "matches": ["https://x.com/*", "https://twitter.com/*", "https://www.reddit.com/*", "https://*.reddit.com/*", "http://localhost:8000/demo/*"]
+      "resources": [
+        "card.css"
+      ],
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*",
+        "https://www.reddit.com/*",
+        "https://*.reddit.com/*",
+        "http://localhost:8000/*"
+      ]
     }
   ]
 }
