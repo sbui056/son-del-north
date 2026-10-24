@@ -14,7 +14,7 @@ SEEDS = ROOT / "seeds"
 
 PHASH_MAX = 8
 PAIR_MARGIN = 0.03  # unsure between a fake and its original -> stay silent
-EMBED_MIN = 0.45  # unrelated photos top out around 0.25 in eval.py
+EMBED_MIN = 0.40  # unrelated photos top out around 0.31 in eval.py (5,236 negatives)
 
 
 def trim_borders(img: Image.Image) -> Image.Image:

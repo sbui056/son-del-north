@@ -8,6 +8,7 @@ from PIL import Image
 WORK_WIDTH = 640
 VERDICT_MARGIN = 3.0  # Lab units; closer calls fall back to embedding similarity
 CLOSE = 50  # Lab units; a pixel this close to one version counts as a vote for it
+FLAT = 3  # local contrast below this is a solid overlay, not photo
 KEEP_REGION = 0.2  # drop changed blobs smaller than this fraction of the biggest one
 
 
@@ -43,6 +44,13 @@ def _align(query, original):
 
 def _lab(x):
     return cv2.GaussianBlur(cv2.cvtColor(x, cv2.COLOR_BGR2LAB), (7, 7), 0).astype(np.float32)
+
+
+def _texture(x):
+    """Local contrast; near zero on solid caption bars and stickers."""
+    g = cv2.cvtColor(x, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    mean = cv2.blur(g, (9, 9))
+    return np.sqrt(np.maximum(cv2.blur(g * g, (9, 9)) - mean * mean, 0))
 
 
 def _match_colors(wq, wo, inside):
@@ -125,7 +133,9 @@ class KnownEdit:
         to_orig = np.abs(q - o).max(axis=2)[area]
         to_fake = np.abs(q - f).max(axis=2)[area]
         # Pixels that look like neither version (captions, stickers over the edit) don't get a vote.
-        decided = (np.minimum(to_orig, to_fake) < CLOSE) & (np.abs(to_orig - to_fake) > VERDICT_MARGIN)
+        covered = (_texture(warped) < FLAT) & (np.minimum(_texture(self.o), _texture(self.f)) >= FLAT)
+        decided = ((np.minimum(to_orig, to_fake) < CLOSE) & (np.abs(to_orig - to_fake) > VERDICT_MARGIN)
+                   & ~covered[area])
         if decided.sum() < max(200, 0.3 * area.sum()):
             return None
         fake_share = (to_fake < to_orig)[decided].mean()
