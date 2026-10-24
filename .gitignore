@@ -1,0 +1,30 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Model weights and generated data
+weights/
+*.pt
+*.pth
+*.torchscript
+index/
+seeds/**/*.jpg
+seeds/**/*.jpeg
+seeds/**/*.png
+seeds/**/*.webp
+test/positives/
+test/negatives/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.log
