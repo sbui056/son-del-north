@@ -3,10 +3,14 @@
 Positives are built from seeds with transforms that differ from the index-time
 augmentations (random crops, rotation, color shifts, overlaid text, UI chrome).
 Negatives are real photos in test/negatives/, many of them the same subject as the fakes.
+Wild copies in test/wild/<seed-id>/ are real reposts found online (screenshots, crops,
+fact-check frames). test/wild_originals/<seed-id>/ are real copies of the untouched photo.
+test/coco/ is COCO val2017 as a large set of everyday negatives. --quick uses 500 of them.
 """
 import io
 import json
 import random
+import sys
 import time
 from pathlib import Path
 
@@ -52,11 +56,43 @@ def scores(m, images):
     return out, ms
 
 
+def load(folder):
+    return [(p, Image.open(p)) for p in sorted(folder.glob("*/*.jpg"))]
+
+
+def wild(m):
+    copies = load(ROOT / "test" / "wild")
+    hits = 0
+    for p, img in copies:
+        r = m.match(img)
+        if r["match"] and r.get("id") == p.parent.name:
+            hits += 1
+        else:
+            print(f"  miss {p.parent.name}/{p.name}: score {r['score']} {r.get('method')} {r.get('id', '')}")
+    print(f"wild recall: {hits}/{len(copies)} matched to the right seed")
+    reals = load(ROOT / "test" / "wild_originals")
+    flagged = [f"{p.parent.name}/{p.name}" for p, img in reals if m.match(img)["match"]]
+    print(f"wild originals flagged: {len(flagged)}/{len(reals)} {flagged}")
+
+
+def coco(m, neg):
+    paths = sorted((ROOT / "test" / "coco").glob("*.jpg"))
+    if "--quick" in sys.argv:
+        paths = random.Random(7).sample(paths, min(500, len(paths)))
+    res, _ = scores(m, (Image.open(p) for p in paths))
+    flagged = [p.name for p, r in zip(paths, res) if r[0]]
+    print(f"coco false flags: {len(flagged)}/{len(paths)} {flagged[:10]}")
+    top = sorted(((r[1], n) for r, n in zip(res + neg[0], [p.name for p in paths] + neg[1])), reverse=True)[:5]
+    print(f"highest scores across negatives + coco: {top}")
+
+
 def main():
     m = M.Matcher()
     seeds = [e for e in m.entries if e["kind"] != "original"]
     positives = [repost(Image.open(ROOT / "seeds" / e["image"])) for e in seeds for _ in range(3)]
-    negatives = [Image.open(p) for p in sorted((ROOT / "test" / "negatives").glob("*.jpg"))]
+    neg_paths = sorted((ROOT / "test" / "negatives").glob("*.jpg"))
+    negatives = [Image.open(p) for p in neg_paths]
+    neg_names = [p.name for p in neg_paths]
 
     pos, pos_ms = scores(m, positives)
     neg, neg_ms = scores(m, negatives)
@@ -78,6 +114,8 @@ def main():
     reals = [m.match(repost(Image.open(ROOT / "seeds" / e["id"] / "original.jpg")))["match"] for e in pairs for _ in range(10)]
     print(f"edited pairs: fake reposts flagged {sum(fakes)}/{len(fakes)}, real-photo reposts flagged {sum(reals)}/{len(reals)}")
     print(f"latency median {np.median(pos_ms + neg_ms):.0f} ms, p95 {np.percentile(pos_ms + neg_ms, 95):.0f} ms")
+    wild(m)
+    coco(m, (neg, neg_names))
 
 
 if __name__ == "__main__":
