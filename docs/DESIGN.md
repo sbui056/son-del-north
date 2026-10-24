@@ -110,7 +110,7 @@ flowchart LR
   REG --> CMP
 ```
 
-The edited region is computed once, when the index loads. A new copy is aligned to the original, and only the pixels inside that region decide the verdict. Crops, filters and captions change the rest of the image, so they don't matter. If the call is too close, the matcher falls back to comparing embedding similarity with a margin, and when it's still unsure it stays silent.
+The edited region is computed once, when the index loads. A new copy is aligned to the original, and each pixel inside that region votes for whichever version it's close to. Crops, filters and captions change the rest of the image, so they don't matter. Pixels that look like neither version, or that are covered by a solid caption bar or sticker, get no vote. A verdict needs a clear majority. If there's no clear majority, the matcher falls back to comparing embedding similarity with a margin, and when it's still unsure it stays silent. Calling a real photo fake is the worst mistake this product can make, so every tie goes to silence.
 
 ## 5. Offline build
 
@@ -125,15 +125,24 @@ flowchart LR
 
 ## 6. Numbers
 
-From `eval.py`: synthetic reposts with random crops, rotation, color shifts, caption text, screenshot frames and JPEG quality 30 to 70. None of these are the same transforms used to build the index.
+`eval.py` measures three things:
+
+- **Synthetic reposts** of every seed: random crops, rotation, color shifts, caption text, screenshot frames, JPEG quality 30 to 70. None of these are the transforms used at index time.
+- **Real reposts found online**: tweet screenshots, fact-check frames with stamps, captioned thumbnails, news article crops.
+- **Normal photos**: 236 hand-picked ones (148 show the same subject as a fake), plus the 5,000 COCO val2017 images.
 
 | | |
 |---|---|
-| Known fakes, reposts caught | 69/75 (92%) |
-| Normal photos flagged | 0/236 (148 show the same subject as a fake) |
-| Top normal-photo score | 0.25 vs threshold 0.45 |
-| Latency | 61 ms median, ~100 ms p95, CPU only |
+| Seeds | 53 (9 edited pairs with the real original) |
+| Synthetic reposts caught | 154/159 (97%) |
+| Real reposts from the web caught | 22/26 |
+| Edited fakes caught / real originals flagged | 83/90 / 1/90 |
+| Normal photos flagged | 0/5,236 |
+| Highest normal-photo score | 0.31 vs threshold 0.40 |
+| Latency | ~65 ms median, ~115 ms p95, CPU only |
 | Cost | $0, everything runs locally |
+
+The real reposts it misses are collages where the fake is a small tile, and different images from the same AI series as a seed (they're separate images, so they *should* need their own entry).
 
 ## 7. Going to production
 
