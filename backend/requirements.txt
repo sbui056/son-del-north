@@ -7,5 +7,4 @@ imagehash
 numpy
 torch
 torchvision
-faiss-cpu
 opencv-python-headless
