@@ -4,6 +4,12 @@
 
 No popup, no clicking, no account. It stays silent on everything else.
 
+**[Watch the 2-minute demo](https://drive.google.com/file/d/13o9enCaqyHx_e_lahNhgkOggq3qEZV8j/view)**
+
+![Sidenote putting notes under edited photos in a feed, with the real original next to the shared copy](docs/demo.gif)
+
+Built at c0mpiled-16, UC San Diego, October 2026 (Track 4: AI-Powered Consumer Products).
+
 ## Why
 
 Most viral fakes have already been fact-checked by someone. The problem is that the fact-check stays stuck on one post. A Community Note lives on X. A Snopes article lives on Snopes. Screenshot the image, repost it on Reddit or in the family group chat, and the correction is gone.
@@ -17,7 +23,7 @@ Sidenote makes the note travel with the image. It doesn't decide what's true. Pe
 - **Wrong note?** Every card has a "Wrong match?" link. It hides the card and logs the report for a person to review.
 - **Everything else:** nothing. The real photo of the same event, the same person or the same flood stays silent.
 
-It works on any site: Reddit, X, news articles, blogs.
+It works on any site. X and Reddit get placement tuned to their layouts, and everywhere else (news articles, Wikipedia, blogs) the card goes right under the image.
 
 ## How it works
 
